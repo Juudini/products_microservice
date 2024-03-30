@@ -12,7 +12,7 @@
 
 ```bash
 # clone this repository
-$ git clone https://github.com/Microservices-Nest/products_microservice.git
+$ git clone https://github.com/Juudini/products_microservice.git
 
 # move to project directory
 $ cd products_microservice
