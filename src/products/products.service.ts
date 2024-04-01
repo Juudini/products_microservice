@@ -14,8 +14,8 @@ export class ProductsService extends PrismaClient implements OnModuleInit {
     this.$connect();
     this.logger.log('📚 Database connected');
   }
+
   create(createProductDto: CreateProductDto) {
-    console.log(createProductDto);
     return this.product.create({
       data: createProductDto,
     });
@@ -45,7 +45,7 @@ export class ProductsService extends PrismaClient implements OnModuleInit {
 
   async findOne(id: number) {
     const product = await this.product.findUnique({
-      where: { id: id, isAvailable: true },
+      where: { id, isAvailable: true },
     });
     if (!product)
       throw new RpcException({
