@@ -20,7 +20,7 @@ $ git clone https://github.com/Juudini/products_microservice.git
 $ cd products_microservice
 
 # install dependencies
-$ pnpm install
+$ npm install
 ```
 
 ## Running the app as Dev mode
@@ -33,7 +33,7 @@ $ docker run -d --name nats-main -p 4222:4222 -p 6222:6222 -p 8222:8222 nats
 $ npx prisma migrate dev
 
 # watch mode
-$ pnpm run start:dev
+$ npm run start:dev
 ```
 
 Make sure you have the `.env` file in the root folder.

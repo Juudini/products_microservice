@@ -3,8 +3,9 @@ import { HttpStatus, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { PrismaClient } from '@prisma/client';
-import { PaginationDto } from 'src/common';
+import { PaginationDto, executePagination } from 'src/common';
 import { RpcException } from '@nestjs/microservices';
+import { PaginationResultsProps } from 'src/common/dto';
 
 @Injectable()
 export class ProductsService extends PrismaClient implements OnModuleInit {
@@ -21,81 +22,133 @@ export class ProductsService extends PrismaClient implements OnModuleInit {
     });
   }
 
-  async findAll(paginationDto: PaginationDto) {
-    const { page, limit } = paginationDto;
+  findAll = async (paginationDto: PaginationDto) => {
+    const { page, limit, sort } = paginationDto;
 
-    const totalPages = await this.product.count({
-      where: { isAvailable: true },
-    });
-    const lastPage = Math.ceil(totalPages / limit);
+    try {
+      const docs: number = await this.product.count();
 
-    return {
-      data: await this.product.findMany({
+      const skipValue = (page - 1) * limit;
+
+      const qrs = await this.product.findMany({
         take: limit,
-        skip: (page - 1) * limit,
-        where: { isAvailable: true },
-      }),
-      meta: {
-        total: totalPages,
-        page: page,
-        lastPage: lastPage,
-      },
-    };
-  }
-
-  async findOne(id: number) {
-    const product = await this.product.findUnique({
-      where: { id, isAvailable: true },
-    });
-    if (!product)
-      throw new RpcException({
-        message: `Product #${id} not found`,
-        status: HttpStatus.BAD_REQUEST,
+        skip: skipValue,
+        orderBy: { createdAt: sort },
       });
 
-    return product;
-  }
+      const paginationResults: PaginationResultsProps = executePagination({
+        page,
+        limit,
+        sort,
+        endpointName: 'products',
+        docs,
+        items: qrs,
+      });
 
-  async update(id: number, updateProductDto: UpdateProductDto) {
-    const { id: __, ...data } = updateProductDto;
+      return paginationResults;
+    } catch (err) {
+      if (err instanceof RpcException) throw err;
 
-    await this.findOne(id);
-
-    return this.product.update({
-      where: { id },
-      data: data,
-    });
-  }
-
-  async remove(id: number) {
-    await this.findOne(id);
-
-    const product = await this.product.update({
-      where: { id },
-      data: { isAvailable: false },
-    });
-
-    return product;
-  }
-
-  async validateProducts(ids: number[]) {
-    ids = Array.from(new Set(ids));
-
-    const products = await this.product.findMany({
-      where: {
-        id: {
-          in: ids,
-        },
-      },
-    });
-
-    if (products.length !== ids.length) {
       throw new RpcException({
-        message: `Some products are not available`,
         status: HttpStatus.BAD_REQUEST,
+        message: 'Something went wrong.',
       });
     }
+  };
 
-    return products;
-  }
+  findOne = async (id: number) => {
+    try {
+      const product = await this.product.findUnique({
+        where: { id: id, isAvailable: true },
+      });
+
+      if (!product) {
+        throw new RpcException({
+          status: HttpStatus.NOT_FOUND,
+          message: `QR not found or has been deleted.`,
+          payload: [{ id }],
+        });
+      }
+
+      return { status: 'success', payload: [product] };
+    } catch (err) {
+      if (err instanceof RpcException) throw err;
+
+      throw new RpcException({
+        status: HttpStatus.BAD_REQUEST,
+        message: 'Something went wrong.',
+      });
+    }
+  };
+
+  update = async (id: number, updateProductDto: UpdateProductDto) => {
+    const { id: __, ...data } = updateProductDto;
+    try {
+      await this.findOne(id);
+
+      const payload = this.product.update({
+        where: { id },
+        data: data,
+      });
+
+      return { status: 'success', payload: [payload] };
+    } catch (err) {
+      if (err instanceof RpcException) throw err;
+
+      throw new RpcException({
+        status: HttpStatus.BAD_REQUEST,
+        message: 'Something went wrong.',
+      });
+    }
+  };
+
+  remove = async (id: number) => {
+    try {
+      await this.findOne(id);
+
+      const payload = await this.product.update({
+        where: { id },
+        data: { isAvailable: false },
+      });
+
+      return { status: 'success', payload: [payload] };
+    } catch (err) {
+      if (err instanceof RpcException) throw err;
+
+      throw new RpcException({
+        status: HttpStatus.BAD_REQUEST,
+        message: 'Something went wrong.',
+      });
+    }
+  };
+
+  validateProducts = async (ids: number[]) => {
+    ids = Array.from(new Set(ids));
+
+    try {
+      const products = await this.product.findMany({
+        where: {
+          id: {
+            in: ids,
+          },
+        },
+      });
+
+      if (products.length !== ids.length) {
+        throw new RpcException({
+          status: HttpStatus.BAD_REQUEST,
+          message: `Some products are not available`,
+        });
+      }
+
+      return { status: 'success', payload: [products] };
+    } catch (err) {
+      if (err instanceof RpcException) throw err;
+
+      throw new RpcException({
+        status: HttpStatus.BAD_REQUEST,
+        message: 'Something went wrong.',
+      });
+    }
+  };
 }
