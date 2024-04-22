@@ -30,7 +30,7 @@ export class ProductsService extends PrismaClient implements OnModuleInit {
 
       const skipValue = (page - 1) * limit;
 
-      const qrs = await this.product.findMany({
+      const products = await this.product.findMany({
         take: limit,
         skip: skipValue,
         orderBy: { createdAt: sort },
@@ -42,7 +42,7 @@ export class ProductsService extends PrismaClient implements OnModuleInit {
         sort,
         endpointName: 'products',
         docs,
-        items: qrs,
+        items: products,
       });
 
       return paginationResults;
@@ -65,7 +65,7 @@ export class ProductsService extends PrismaClient implements OnModuleInit {
       if (!product) {
         throw new RpcException({
           status: HttpStatus.NOT_FOUND,
-          message: `QR not found or has been deleted.`,
+          message: `Product not found or has been deleted.`,
           payload: [{ id }],
         });
       }
